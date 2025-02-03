@@ -75,19 +75,24 @@ namespace Surface{
                                               ComputationalData computational){
 
             real4 posi = computational.pos[index_i]; //position of particle i (i.e. coming from ''state'')
-	    real qp = computational.charge[index_i];
 	    real zs = computational.surfacePosition;
-	    real gammas = computational.surfaceGamma;
-	    real lD = computational.debyeLength;
-	    real kBT = computational.thermalEnergy;
+	    real forza;
+	    real3 f = make_real3(0.0);
+	    real qp = computational.charge[index_i];
+	    if (qp*qp > 1e-6)
+	    {
+		    real gammas = computational.surfaceGamma;
+		    real lD = computational.debyeLength;
+		    real kBT = computational.thermalEnergy;
 
-            real3 p = make_real3(posi);
-	    real u = gammas*exp(-fabs(p.z - zs)/lD);
-	    real forza = 4.0*qp*kBT/lD*u/(1.0-u*u);
-	    if (p.z < zs)
-		    forza *= -1.0;
+        	    real3 p = make_real3(posi);
+		    real u = gammas*exp(-fabs(p.z - zs)/lD);
+		    real forza = real(4.0)*qp*kBT/lD*u/(real(1.0)-u*u);
+		    if (p.z < zs)
+			    forza *= real(-1.0);
 	    
-            real3 f = {0.0, 0.0, forza};
+	            f.z = f.z + forza;
+	    }
 
             return f;
         }
@@ -104,7 +109,7 @@ namespace Surface{
 
             real3 p = make_real3(posi);
 	    real u = gammas*exp(-fabs(p.z - zs)/lD);
-            real e = -2.0*qp*kBT*log((1.0-u)/(1.0+u));
+            real e = real(-2.0)*qp*kBT*log((real(1.0)-u)/(real(1.0)+u));
 
             return e;
 

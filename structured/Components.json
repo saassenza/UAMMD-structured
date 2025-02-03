@@ -166,7 +166,8 @@
             ["External", "HelixBoundaries","HelixBoundaries.cu"],
             ["External", "ExternalTabulated", "ExternalTabulated.cu"],
             ["External", "ConstantTorque", "ConstantTorque.cu"],
-            ["Surface", "GouyChapman", "GouyChapman.cu"]
+            ["Surface", "GouyChapman", "GouyChapman.cu"],
+            ["Surface", "vanDerWaals", "vanDerWaals.cu"]
         ],
         "Set": [
             ["Set1", "ConstantTorqueOverCenterOfMass", "Torque.cu"],
