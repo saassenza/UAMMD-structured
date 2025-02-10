@@ -324,6 +324,30 @@ namespace BasicPotentials{
                 return e;
             }
 
+	    static inline __device__ tensor3 hessian(const real3& rij, const real& r2,  //Salvo TODO: I did not check numerically
+                                                 const real& epsilon,const real& sigma,
+                                                 const real& lambda, const real& alpha,
+                                                 const int& n){
+
+	    const real  invr2      = real(1.0)/r2;
+            const real  invr       = sqrt(invr2);
+	    const real r_sigma2    = r2/(sigma*sigma);
+	    const real r_sigma6    = r_sigma2*r_sigma2*r_sigma2;
+	    const real r_sigma12   = r_sigma6*r_sigma6;
+	    const real Aloc        = alpha*(real(1.0)-lambda)*(real(1.0)-lambda);
+	    const real inv_Aloc    = real(1.0)/Aloc;
+	    const real inv_Aloc2   = inv_Aloc*inv_Aloc;
+	    const real inv_Aloc3   = inv_Aloc*inv_Aloc2;
+	    const real inv_Aloc4   = inv_Aloc2*inv_Aloc2;
+	    const real eps_lambdan = epsilon*pow(lambda, n);
+
+            const real   dudr      = -real(12.0)*eps_lambdan*invr*r_sigma6*(inv_Aloc3 - inv_Aloc2);
+            const real   d2udr2    = -real(60.0)*eps_lambdan*invr2*r_sigma6*(inv_Aloc3 - inv_Aloc2) + 
+		    real(72.0)*eps_lambdan*invr2*r_sigma12*(real(3.0)*inv_Aloc4 - real(2.0)*inv_Aloc2);
+
+            return computeHessianRadialPotential(rij, invr, invr2, dudr, d2udr2);
+          }
+
             static inline __device__ real lambdaDerivative(const real3& rij, const real& r2,
                                                            const real& epsilon,const real& sigma,
                                                            const real& lambda, const real& alpha,

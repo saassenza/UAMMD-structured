@@ -49,7 +49,9 @@ namespace Surface{
             computational.surfacePosition = storage.surfacePosition;
             computational.surfaceGamma = storage.surfaceGamma;
             computational.debyeLength = storage.debyeLength;
-            computational.thermalEnergy = storage.thermalEnergy;
+	    real kB  = gd->getUnits()->getBoltzmannConstant();
+	    real T   = gd->getEnsemble()->getTemperature();
+            computational.thermalEnergy = kB*T;
 
             return computational;
         }
@@ -65,7 +67,6 @@ namespace Surface{
             storage.surfacePosition = data.getParameter<real>("surfacePosition");
             storage.surfaceGamma = data.getParameter<real>("surfaceGamma");
             storage.debyeLength = data.getParameter<real>("debyeLength");
-            storage.thermalEnergy = data.getParameter<real>("thermalEnergy");
 
             return storage;
         }
@@ -87,7 +88,7 @@ namespace Surface{
 
         	    real3 p = make_real3(posi);
 		    real u = gammas*exp(-fabs(p.z - zs)/lD);
-		    real forza = real(4.0)*qp*kBT/lD*u/(real(1.0)-u*u);
+		    forza = real(4.0)*qp*kBT/lD*u/(real(1.0)-u*u);
 		    if (p.z < zs)
 			    forza *= real(-1.0);
 	    

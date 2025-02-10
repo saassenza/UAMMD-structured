@@ -210,7 +210,9 @@
             ["NonBonded", "Steric12SoftCore", "LennardJonesSoftCore.cu"],
             ["NonBonded", "LennardJonesSoftCoreType1", "LennardJonesSoftCore.cu"],
             ["NonBonded", "LennardJonesSoftCoreType2", "LennardJonesSoftCore.cu"],
-            ["NonBonded", "SplitLennardJones", "SplitLennardJones.cu"]
+            ["NonBonded", "SplitLennardJones", "SplitLennardJones.cu"],
+            ["NonBonded", "WCA_DH", "WCA_DH.cu"],
+            ["NonBonded", "softWCA_DH", "softWCA_DH.cu"]
         ],
         "Patches": [
             ["SurfacePatches", "Linker", "Linker.cu"],
