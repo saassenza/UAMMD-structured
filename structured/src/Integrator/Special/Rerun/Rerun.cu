@@ -1,4 +1,5 @@
 #include "System/ExtendedSystem.cuh"
+#include "Simulation/Simulation.cuh"
 #include "GlobalData/GlobalData.cuh"
 #include "ParticleData/ExtendedParticleData.cuh"
 #include "ParticleData/ParticleGroup.cuh"
@@ -6,6 +7,7 @@
 #include "Integrator/IntegratorBase.cuh"
 #include "Integrator/IntegratorFactory.cuh"
 #include "Integrator/IntegratorUtils.cuh"
+#include <unistd.h>
 
 namespace uammd{
 namespace structured{
@@ -38,8 +40,25 @@ namespace Rerun{
 				posLocY_h.resize(N);
 				posLocZ_h.resize(N);
 
+				if (::access(inputTrajectory.c_str(), F_OK ) == -1 )
+                                {
+                                        System::log<System::CRITICAL>("[Rerun] File %s not found", inputTrajectory.c_str());
+                                }
 				readerInputTrajectory.open(inputTrajectory.c_str(), std::ifstream::in);
+				std::string localString; 				
+				getline(readerInputTrajectory, localString); //skip first line
+				getline(readerInputTrajectory, localString); //skip second line
+				getline(readerInputTrajectory, localString); //skip third line
+				int nInput;
+				readerInputTrajectory >> nInput;
+				if (nInput != N)
+				{
+					System::log<System::CRITICAL>("[Rerun] Number of particles %d in file %s is different than input value %d", nInput, inputTrajectory.c_str(), N);
+				}
+				readerInputTrajectory.close();
+				
 				System::log<System::MESSAGE>("[Rerun] (%s) Opened stream for input trajectory %s",name.c_str(), inputTrajectory.c_str());
+				readerInputTrajectory.open(inputTrajectory.c_str(), std::ifstream::in);
 				
 				System::log<System::DEBUG1>("[Rerun] (%s) Performing rerun of step %llu",name.c_str(), this->gd->getFundamental()->getCurrentStep());
 				this->integrationStep();
@@ -52,14 +71,9 @@ namespace Rerun{
 				}
 
 				System::log<System::DEBUG1>("[Rerun] (%s) Performing rerun of step %llu",name.c_str(), this->gd->getFundamental()->getCurrentStep());
-				//this->updateForce();
-				//CudaSafeCall(cudaStreamSynchronize(stream));
-				//CudaCheckError();
-				real currentTempo = this->integrationStep();
-				printf("IGNAZIO %f\n", currentTempo);
+				real currentTime = this->integrationStep();
 				this->gd->getFundamental()->setCurrentStep(this->gd->getFundamental()->getCurrentStep()+1);
-				//this->gd->getFundamental()->setSimulationTime(this->gd->getFundamental()->getSimulationTime()+this->dt);
-				this->gd->getFundamental()->setSimulationTime(currentTempo);
+				this->gd->getFundamental()->setSimulationTime(currentTime);
 			}
 
 			real integrationStep(){
@@ -68,27 +82,22 @@ namespace Rerun{
 				real4* pos_ptr   = pos.raw();
 
 				std::string localString; 				
-				real passoTempo;
+				real currentTime;
 
 				getline(readerInputTrajectory, localString); //skip first line
-				//printf("IGNAZIO %s\n", localString.c_str());
-                                readerInputTrajectory >> passoTempo;
-				//printf("IGNAZIO %12.10f\n", passoTempo);
+                                readerInputTrajectory >> currentTime;
                                 for (int i=2; i<=9; i++) // skip rest of the header
 				{
                                         getline(readerInputTrajectory, localString);
-					//printf("IGNAZIO %s\n", localString.c_str());
 				}
                                 int iLoc, tipo;
                                 for (int i=0; i<N; i++)
                                 {
                                         readerInputTrajectory >> iLoc >> tipo >> pos_ptr[i].x >> pos_ptr[i].y >> pos_ptr[i].z;
-					//printf("IGNAZIO %12.10f %d %d %12.10f %12.10f %12.10f\n", passoTempo, iLoc, tipo, pos_ptr[i].x, pos_ptr[i].y, pos_ptr[i].z);
                                 }
-				//printf("IGNAZIO %12.10f %d %d %12.10f %12.10f %12.10f\n", passoTempo, iLoc, tipo, pos_ptr[N-1].x, pos_ptr[N-1].y, pos_ptr[N-1].z);
                                 getline(readerInputTrajectory, localString); // close the last line
 
-				return passoTempo;
+				return currentTime;
 			}
 
 	};
