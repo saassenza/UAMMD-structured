@@ -48,7 +48,8 @@
             ["Verlet", "VelocityVerlet", "VelocityVerlet.cu"]
         ],
         "Special": [
-            ["None", "None", "None.cu"]
+            ["None", "None", "None.cu"],
+            ["Rerun", "Rerun", "Rerun.cu"]
         ]
     },
     "SimulationStep": {
@@ -142,7 +143,9 @@
             ["Bond1", "ConstantForce", "ConstantForce.cu"],
             ["Bond1", "LambdaFixedHarmonicAnisotropic", "LambdaFixedHarmonicAnisotropic.cu"],
             ["Bond4", "IDP_Fourier", "IDP_Fourier.cu"],
-            ["Bond1", "FixedHarmonicAnisotropic", "FixedHarmonicAnisotropic.cu"]
+            ["Bond1", "FixedHarmonicAnisotropic", "FixedHarmonicAnisotropic.cu"],
+            ["Bond1", "TangentialActiveForce", "TangentialActiveForce.cu"],
+            ["Bond2", "WCA", "WCA.cu"]
         ],
         "Single": [
             ["Surface", "SurfaceLennardJonesType1", "LennardJonesSurface.cu"],

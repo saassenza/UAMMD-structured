@@ -1,0 +1,135 @@
+#include "System/ExtendedSystem.cuh"
+#include "GlobalData/GlobalData.cuh"
+#include "ParticleData/ExtendedParticleData.cuh"
+#include "ParticleData/ParticleGroup.cuh"
+
+#include "Integrator/IntegratorBase.cuh"
+#include "Integrator/IntegratorFactory.cuh"
+#include "Integrator/IntegratorUtils.cuh"
+
+namespace uammd{
+namespace structured{
+namespace Integrator{
+namespace Special{
+namespace Rerun{
+
+	class Rerun : public IntegratorBaseNVT{
+
+		private:
+
+			//std::unique_ptr<uammd::VerletSpecial> nve;
+			std::ifstream leggi;
+			std::string inputTrajectory;
+			thrust::device_vector <real> posLocX_d, posLocY_d, posLocZ_d;
+			thrust::host_vector <real> posLocX_h, posLocY_h, posLocZ_h;
+			bool firstStep = true;
+
+		public:
+
+      Rerun(std::shared_ptr<GlobalData>           gd,
+                     std::shared_ptr<ParticleGroup>        pg,
+                     DataEntry& data,
+                     std::string name):IntegratorBaseNVT(gd,pg,data,name){
+
+				//IntegratorUtils::generateVelocity(this->pg,
+                                //                  this->kBT,
+                                //                  this->gd->getSystem()->getSeed(),
+                                //                  this->stream);
+
+	      			inputTrajectory = data.getParameter<std::string>("inputTrajectory");
+				//typename uammd::VerletSpecial::Parameters nveParams;
+
+				//nveParams.dt = this->dt;
+				//nveParams.initVelocities = false;
+
+				//nve = std::make_unique<uammd::VerletSpecial>(this->pg, nveParams);
+			}
+
+			void forwardTime() override {
+
+				if(firstStep){
+					uint N = this->pg->getNumberParticles();
+					posLocX_d.resize(N);
+					posLocY_d.resize(N);
+					posLocZ_d.resize(N);
+					posLocX_h.resize(N);
+					posLocY_h.resize(N);
+					posLocZ_h.resize(N);
+
+					leggi.open(inputTrajectory.c_str(), std::ifstream::in);
+					System::log<System::MESSAGE>("[Rerun] (%s) Opened stream for input trajectory %s",name.c_str(), inputTrajectory.c_str());
+
+					firstStep = false;
+				}
+
+				System::log<System::DEBUG1>("[Rerun] (%s) Performing rerun of step %llu",name.c_str(), this->gd->getFundamental()->getCurrentStep());
+				this->updateForce();
+				this->integrationStep();
+				this->gd->getFundamental()->setCurrentStep(this->gd->getFundamental()->getCurrentStep()+1);
+				this->gd->getFundamental()->setSimulationTime(this->gd->getFundamental()->getSimulationTime()+this->dt);
+			}
+
+			void integrationStep(){
+				uint N = this->pg->getNumberParticles();
+				auto pos   = this->pd->getPos(access::location::gpu, access::mode::readwrite);
+				auto force = this->pd->getForce(access::location::gpu, access::mode::readwrite);
+				auto groupIterator = this->pg->getIndexIterator(access::location::gpu);
+
+	    			real4* force_ptr = force.raw();
+
+				std::string localString; 				
+				//std::vector <real> posLocX(N), posLocY(N), posLocZ(N);
+	    			//real* posLocX_ptr = posLocX.data();
+	    			//real* posLocY_ptr = posLocY.data();
+	    			//real* posLocZ_ptr = posLocZ.data();
+				real passoTempo;
+
+				getline(leggi, localString); //skip first line
+				printf("IGNAZIO %s\n", localString.c_str());
+                                leggi >> passoTempo;
+				printf("IGNAZIO %12.10f\n", passoTempo);
+                                for (int i=2; i<=9; i++) // skip rest of the header
+				{
+                                        getline(leggi, localString);
+					printf("IGNAZIO %s\n", localString.c_str());
+				}
+                                int iLoc, tipo;
+                                for (int i=0; i<N; i++)
+                                {
+                                        leggi >> iLoc >> tipo >> posLocX_h[i] >> posLocY_h[i] >> posLocZ_h[i];
+					printf("IGNAZIO %12.10f %d %d %12.10f %12.10f %12.10f\n", passoTempo, iLoc, tipo, posLocX_h[i], posLocY_h[i], posLocZ_h[i]);
+                                }
+                                getline(leggi, localString); // close the last line
+				thrust::copy(posLocX_h.begin(), posLocX_h.end(), posLocX_d.begin());
+				thrust::copy(posLocY_h.begin(), posLocY_h.end(), posLocY_d.begin());
+				thrust::copy(posLocZ_h.begin(), posLocZ_h.end(), posLocZ_d.begin());
+
+				{
+				real4* pos_ptr      = pos.raw();
+				real* posLocX_ptr   = thrust::raw_pointer_cast(posLocX_d.data());
+				real* posLocY_ptr   = thrust::raw_pointer_cast(posLocY_d.data());
+				real* posLocZ_ptr   = thrust::raw_pointer_cast(posLocZ_d.data());
+				thrust::for_each(thrust::cuda::par.on(this->stream),groupIterator,groupIterator + N,
+		    		[=] __device__ (int index){printf("PANCRAZIO 1 %d\n", index);
+							   pos_ptr[index].x = posLocX_ptr[index];
+							   printf("PANCRAZIO 2 %d\n", index);
+    							   pos_ptr[index].y = posLocY_ptr[index];
+							   printf("PANCRAZIO 3 %d\n", index);							   
+  							   pos_ptr[index].z = posLocZ_ptr[index];
+							   printf("PANCRAZIO 4 %d\n", index);
+    
+							   force_ptr[index] = make_real4(0);
+							   printf("PANCRAZIO5 %d\n", index);
+							   });
+				}
+				CudaSafeCall(cudaStreamSynchronize(stream));
+			}
+
+	};
+
+}}}}}
+
+REGISTER_INTEGRATOR(
+    Rerun,Rerun,
+    uammd::structured::Integrator::Special::Rerun::Rerun
+)

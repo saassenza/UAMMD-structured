@@ -571,15 +571,15 @@ namespace Output{
     }
 
     void WriteLAMMPS(std::shared_ptr<ParticleGroup> pg,
+		     std::shared_ptr<GlobalData> gd,
             Box box,
-            real t,
             std::ofstream& out){
 
         auto pd  = pg->getParticleData();
         auto sys = pd->getSystem();
 
         out<<"ITEM: TIMESTEP"<<std::endl;
-        out<<t<<std::endl;
+        out<<gd->getFundamental()->getSimulationTime()<<std::endl;
 
         out<<"ITEM: NUMBER OF ATOMS"<<std::endl;
         out<<pg->getNumberParticles()<<std::endl;
@@ -629,6 +629,7 @@ namespace Output{
         }
 
         int i=0;
+	auto types = gd->getTypes();
         for(const auto& ii : id_index){
             i++;
 
@@ -636,7 +637,11 @@ namespace Output{
 
             real4 pc = pos[index];
 
-            out << i << " " << int(pc.w)+1 << " " << box.apply_pbc(make_real3(pc)) << std::endl;
+	    int typeID = int(pc.w);
+	    std::string typeName = types->getTypeName(typeID);
+
+            //out << i << " " << int(pc.w)+1 << " " << box.apply_pbc(make_real3(pc)) << std::endl;
+            out << i << " " << typeName << " " << box.apply_pbc(make_real3(pc)) << std::endl;
 
         }
 

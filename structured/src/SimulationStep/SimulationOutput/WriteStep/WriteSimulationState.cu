@@ -171,8 +171,9 @@ class WriteStep: public SimulationStepBase{
                                  outputFile);
             } else if (outputFormat ==
                        std::string("lammpstrj")){
-                real time = step*gd->getFundamental()->getTimeStep();
-                Output::WriteLAMMPS(pg,this->getBox(),time,outputFile);
+                //real time = step*gd->getFundamental()->getTimeStep();
+                //real time = this->gd->getFundamental()->getSimulationTime();
+                Output::WriteLAMMPS(pg,this->gd,this->getBox(),outputFile);
             } else if (outputFormat ==
                        std::string("vel")){
                 Output::WriteVelocity(pg,outputFile);

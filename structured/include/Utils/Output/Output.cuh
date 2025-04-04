@@ -78,8 +78,8 @@ void WriteDCD(std::shared_ptr<ParticleGroup> pg,
               std::ofstream& out);
 
 void WriteLAMMPS(std::shared_ptr<ParticleGroup> pg,
+		 std::shared_ptr<GlobalData> gd,
                  Box box,
-                 real t,
                  std::ofstream& out);
 
 void WriteMagnetization(std::shared_ptr<ParticleGroup> pg,
