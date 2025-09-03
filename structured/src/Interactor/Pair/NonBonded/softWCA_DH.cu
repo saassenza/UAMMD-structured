@@ -7,9 +7,8 @@
 #include "Interactor/Pair/NonBonded/NonBonded.cuh"
 #include "Interactor/InteractorFactory.cuh"
 
-#include "Interactor/BasicPotentials/DebyeHuckel.cuh"
 #include "Interactor/BasicPotentials/LennardJones.cuh"
-#include "Interactor/BasicParameters/Pair/WCA_DH.cuh"
+#include "Interactor/BasicParameters/Pair/LennardJones.cuh"
 #include "Utils/ParameterHandler/PairParameterHandler.cuh"
 
 namespace uammd{
@@ -19,46 +18,50 @@ namespace NonBonded{
 
     struct softWCA_DH_{
 
-	using ParametersType        = typename BasicParameters::Pairs::WCA_DH;
-	using ParameterPairsHandler = typename structured::PairParameterHandler<ParametersType>;
+        using LennardJonesType      = typename BasicPotentials::LennardJones::Type1;
+
+        using ParametersType        = typename BasicParameters::Pairs::LennardJones;
+        using ParameterPairsHandler = typename structured::PairParameterHandler<ParametersType>;
+
         using ParametersPairsIterator = typename ParameterPairsHandler::PairIterator;
 
-        //Computational data
         struct ComputationalData{
 
             real4* pos;
+	    real*  charge;
+            Box box;
 
-            Box    box;
+            ParametersPairsIterator paramPairIterator;
 
-            real ELECOEF;
-
-            real dielectricConstant;
-            real debyeLength;
+	    real cutOff;
 	    real lambda;
-            real alpha;
-            int  n;
 
-	    ParametersPairsIterator paramPairIterator;
+	    real ELECOEF;
+	    real debyeLength;
+	    real dielectricConstant;
 
-            real cutOffFactor;
-            real cutOff;
+	    real alpha;
+	    int n;
         };
 
         //Potential parameters
         struct StorageData{
 
-	    std::shared_ptr<ParameterPairsHandler> Param;
-            real ELECOEF;
-
-            real dielectricConstant;
-            real debyeLength;
-            real alpha;
-            int  n;
+            std::shared_ptr<ParameterPairsHandler> WCAParam;
 
             real cutOffFactor;
             real cutOff;
+	    real lambda;
+
+	    real ELECOEF;
+	    real debyeLength;
+	    real dielectricConstant;
+
+	    real alpha;
+	    int n;
         };
 
+        //Computational data getter
         static __host__ ComputationalData getComputationalData(std::shared_ptr<GlobalData>    gd,
                                                                std::shared_ptr<ParticleGroup> pg,
                                                                const StorageData&  storage,
@@ -68,22 +71,22 @@ namespace NonBonded{
             ComputationalData computational;
 
             std::shared_ptr<ParticleData> pd = pg->getParticleData();
+	    computational.charge = pd->getCharge(access::location::gpu, access::mode::read).raw();
 
-            computational.pos    = pd->getPos(access::location::gpu, access::mode::read).raw();
-
+            computational.pos = pd->getPos(access::location::gpu, access::mode::read).raw();
             computational.box = gd->getEnsemble()->getBox();
-	    computational.lambda = gd->getEnsemble()->getLambda();
-	    computational.paramPairIterator = storage.Param->getPairIterator();
 
-            computational.ELECOEF = storage.ELECOEF;
+            computational.paramPairIterator = storage.WCAParam->getPairIterator();
+	    
+	    computational.cutOff = storage.cutOff;
+	    computational.lambda = storage.lambda;
 
-            computational.dielectricConstant = storage.dielectricConstant;
-            computational.debyeLength = storage.debyeLength;
-            computational.alpha = storage.alpha;
-            computational.n = storage.n;
+	    computational.debyeLength = storage.debyeLength;
+	    computational.ELECOEF = storage.ELECOEF;
+	    computational.dielectricConstant = storage.dielectricConstant;
 
-            computational.cutOffFactor = storage.cutOffFactor;
-            computational.cutOff = storage.cutOff;
+	    computational.alpha = storage.alpha;
+	    computational.n = storage.n;
 
             return computational;
         }
@@ -95,180 +98,140 @@ namespace NonBonded{
                                                    DataEntry& data){
 
             StorageData storage;
+            
+	    storage.WCAParam = std::make_shared<ParameterPairsHandler>(gd,pg,data);
 
-            storage.ELECOEF = gd->getUnits()->getElectricConversionFactor();
+            storage.cutOffFactor  = data.getParameter<real>("cutOffFactor");
+            storage.lambda = data.getParameter<real>("lambda");
+            
+	    storage.debyeLength = data.getParameter<real>("debyeLength");;
+	    storage.ELECOEF = gd->getUnits()->getElectricConversionFactor();
+	    storage.dielectricConstant = data.getParameter<real>("dielectricConstant");;
 
-            storage.dielectricConstant = data.getParameter<real>("dielectricConstant");
-            storage.debyeLength        = data.getParameter<real>("debyeLength");
-            storage.alpha              = data.getParameter<real>("alpha");
-            storage.n                  = data.getParameter<real>("n");
-	    storage.Param = std::make_shared<ParameterPairsHandler>(gd,pg,data);
+	    storage.alpha = data.getParameter<real>("alpha");;
+	    storage.n = data.getParameter<real>("n");;
 
-            storage.cutOffFactor = data.getParameter<real>("cutOffFactor");
-            storage.cutOff       = storage.cutOffFactor*storage.debyeLength;
+            ///////////////////////////////////////////////////////////
 
-	    auto pairsParam = storage.Param->getPairParameters();
-	    real maxSigma = 0.0;
+
+            ///////////////////////////////////////////////////////////
+
+            auto pairsParam = storage.WCAParam->getPairParameters();
+
+            real maxSigma = 0.0;
             for(auto p : pairsParam){
                 maxSigma=std::max(maxSigma,p.second.sigma);
             }
-	    if (maxSigma > storage.cutOff)
-	    {
-		    storage.cutOff = maxSigma;
-	    }
 
-            System::log<System::MESSAGE>("[softWCA_DH] cutOff: %f" ,storage.cutOff);
+            storage.cutOff = maxSigma*storage.cutOffFactor;
+
+            System::log<System::MESSAGE>("[LennardJones] cutOff: %f" ,storage.cutOff);
 
             return storage;
-
         }
 
-
-        static inline __device__ real energy(const int index_i,const int index_j,
+        static inline __device__ real energy(int index_i, int index_j,
                                              const ComputationalData& computational){
 
             const real4 posi = computational.pos[index_i];
             const real4 posj = computational.pos[index_j];
 
             const real3 rij = computational.box.apply_pbc(make_real3(posj)-make_real3(posi));
-            const real r2   = dot(rij, rij);
+
+            const real lambda = computational.lambda;
+            const real alpha = computational.alpha;
+            const int n = computational.n;
+
+            const real epsilon = computational.paramPairIterator(index_i,index_j).epsilon;
+            const real sigma   = computational.paramPairIterator(index_i,index_j).sigma;
+
+            const real r2 = dot(rij, rij);
 
             real e = real(0.0);
 
+	    // DH
             real cutOff2 = computational.cutOff*computational.cutOff;
-            const real chgProduct = computational.paramPairIterator(index_i,index_j).chargeProduct;
-            if(r2>0 and r2<=cutOff2 and chgProduct != real(0.0)){
-
-                e+=BasicPotentials::DebyeHuckel::DebyeHuckel::energy(rij,r2,
-                                                                     computational.ELECOEF,
-                                                                     chgProduct,
-                                                                     computational.dielectricConstant,
-                                                                     computational.debyeLength);
+	    const real chgProduct = computational.charge[index_i]*computational.charge[index_j];
+            if(r2<=cutOff2 and chgProduct != real(0.0)){
+                real prefactorDH = computational.ELECOEF/computational.dielectricConstant*chgProduct;
+		real lD = computational.debyeLength;
+                real dist = sqrt(r2);
+                e += prefactorDH*exp(-dist/lD)/(dist + (real(1.0)-lambda)*lD);
             }
 
-	    const real epsilon  = computational.paramPairIterator(index_i,index_j).epsilon;
-            const real sigma    = computational.paramPairIterator(index_i,index_j).sigma;
-            const real lambda   = computational.lambda;
-            const real alpha    = computational.alpha;
-            const int n         = computational.n;
-	    const real Acomodo  = alpha*(real(1.0)-lambda)*(real(1.0)-lambda); 
-	    const real minPos   = sigma*pow(real(1.0) - Acomodo, real(1.0)/real(6.0));
-	    const real minPos2  = minPos*minPos;	    //position of minimum
-	    if (r2 < minPos2)
-	    {
-		    e += BasicPotentials::LennardJones::SoftCoreType2::energy(rij,r2,epsilon,sigma,lambda,alpha,n);
-		    const real3 rij0 = make_real3(0.0);
-		    e += -BasicPotentials::LennardJones::SoftCoreType2::energy(rij0,minPos2,epsilon,sigma,lambda,alpha,n);
-	    }
+            // WCA
+            const real Acomodo  = alpha*(real(1.0)-lambda)*(real(1.0)-lambda);
+            const real minPos   = sigma*pow(real(1.0) - Acomodo, real(1.0)/real(6.0));
+            const real minPos2  = minPos*minPos;            //position of minimum
+            if (r2 < minPos2)
+            {
+		    real rnorm2 = r2/(sigma*sigma);
+		    real fLambdaInv = real(1.0)/(Acomodo + rnorm2*rnorm2*rnorm2);
+                    e += epsilon*pow(lambda, n)*(fLambdaInv*fLambdaInv - real(2.0)*fLambdaInv + real(1.0)); 
+            }
 
             return e;
+
         }
 
-      static inline __device__ real3 force(const int index_i,const int index_j,
+
+        static inline __device__ real3 force(int index_i, int index_j,
                                              const ComputationalData& computational){
 
             const real4 posi = computational.pos[index_i];
             const real4 posj = computational.pos[index_j];
 
             const real3 rij = computational.box.apply_pbc(make_real3(posj)-make_real3(posi));
-            const real r2   = dot(rij, rij);
+            
+	    const real lambda = computational.lambda;
+            const real alpha = computational.alpha;
+            const int n = computational.n;
 
-            real3 f = make_real3(real(0.0));
+            const real epsilon = computational.paramPairIterator(index_i,index_j).epsilon;
+            const real sigma   = computational.paramPairIterator(index_i,index_j).sigma;
 
+            const real r2 = dot(rij, rij);
+
+            real3 f = make_real3(0.0);
+
+	    // DH
             real cutOff2 = computational.cutOff*computational.cutOff;
-            const real chgProduct = computational.paramPairIterator(index_i,index_j).chargeProduct;
+	    const real chgProduct = computational.charge[index_i]*computational.charge[index_j];
             if(r2>0 and r2<=cutOff2 and chgProduct != real(0.0)){
+                real prefactorDH = computational.ELECOEF/computational.dielectricConstant*chgProduct;
+		real invLD = real(1.0)/computational.debyeLength;
+                real dist = sqrt(r2);
+                real invDistLambda = real(1.0)/(dist + (real(1.0) - lambda)*computational.debyeLength);
+                real fmod = -prefactorDH*exp(-dist*invLD)*invDistLambda/dist*(invLD + invDistLambda);
 
-                f+=BasicPotentials::DebyeHuckel::DebyeHuckel::force(rij,r2,
-                                                                    computational.ELECOEF,
-                                                                    chgProduct,
-                                                                    computational.dielectricConstant,
-                                                                    computational.debyeLength);
+                f += fmod*rij;
             }
 
-	    const real epsilon = computational.paramPairIterator(index_i,index_j).epsilon;
-            const real sigma   = computational.paramPairIterator(index_i,index_j).sigma;
-            const real lambda  = computational.lambda;
-            const real alpha   = computational.alpha;
-            const int n        = computational.n;
-	    const real Acomodo = alpha*(real(1.0)-lambda)*(real(1.0)-lambda); 
-	    const real minPos  = sigma*pow(real(1.0) - Acomodo, real(1.0)/real(6.0));
-	    const real minPos2 = minPos*minPos;	    //position of minimum
-	    if (r2 < minPos2)
+            // WCA
+            const real Acomodo  = alpha*(real(1.0)-lambda)*(real(1.0)-lambda);
+            const real minPos   = sigma*pow(real(1.0) - Acomodo, real(1.0)/real(6.0));
+            const real minPos2  = minPos*minPos;            //position of minimum
+            if (r2 < minPos2)
             {
-                    f += BasicPotentials::LennardJones::SoftCoreType2::force(rij,r2,epsilon,sigma,lambda,alpha,n);
+		    real rnorm2 = r2/(sigma*sigma);
+		    real rnorm6 = rnorm2*rnorm2*rnorm2;
+		    real fLambda = Acomodo + rnorm6;
+		    real fmod = -real(12.0)*epsilon*pow(lambda, n)/(r2*fLambda*fLambda*fLambda)*rnorm6*(real(1.0) - fLambda);
+    
+		    f += fmod*rij;
             }
 
             return f;
         }
 
-      static inline __device__ tensor3 hessian(const int index_i,const int index_j,
-                                               const ComputationalData& computational){
+      static inline __device__ tensor3 hessian(int index_i, int index_j,
+					       const ComputationalData& computational){
 
-            const real4 posi = computational.pos[index_i];
-            const real4 posj = computational.pos[index_j];
+	tensor3 H = tensor3(0.0);
+	return H;
+      }
 
-            const real3 rij = computational.box.apply_pbc(make_real3(posj)-make_real3(posi));
-            const real r2   = dot(rij, rij);
 
-            tensor3 H = tensor3(real(0.0));
-
-            real cutOff2 = computational.cutOff*computational.cutOff;
-            const real chgProduct = computational.paramPairIterator(index_i,index_j).chargeProduct;
-            if(r2>0 and r2<=cutOff2 and chgProduct != real(0.0)){
-
-                H+=BasicPotentials::DebyeHuckel::DebyeHuckel::hessian(rij,r2,
-                                                                      computational.ELECOEF,
-                                                                      chgProduct,
-                                                                      computational.dielectricConstant,
-                                                                      computational.debyeLength);
-            }
-
-            const real epsilon = computational.paramPairIterator(index_i,index_j).epsilon;
-            const real sigma   = computational.paramPairIterator(index_i,index_j).sigma;
-            const real lambda  = computational.lambda;
-            const real alpha   = computational.alpha;
-            const int n        = computational.n;
-	    const real Acomodo = sigma*alpha*(real(1.0)-lambda)*(real(1.0)-lambda); 
-	    const real minPos       = sigma*pow(real(1.0) - Acomodo, real(1.0)/real(6.0));
-	    const real minPos2      = minPos*minPos;	    //position of minimum
-	    if (r2 < minPos2)
-            {
-                    H += BasicPotentials::LennardJones::SoftCoreType2::hessian(rij,r2,epsilon,sigma,lambda,alpha,n);
-            }
-
-            return H;
-        }
-
-      static inline __device__ real lambdaDerivative(int index_i, int index_j,
-                                                       const ComputationalData& computational){
-
-            const real4 posi = computational.pos[index_i];
-            const real4 posj = computational.pos[index_j];
-
-            const real3 rij = computational.box.apply_pbc(make_real3(posj)-make_real3(posi));
-
-            const real epsilon = computational.paramPairIterator(index_i,index_j).epsilon;
-            const real sigma   = computational.paramPairIterator(index_i,index_j).sigma;
-            const real lambda  = computational.lambda;
-            const real alpha   = computational.alpha;
-            const int  n       = computational.n;
-
-            const real r2 = dot(rij, rij);
-	    const real Acomodo = sigma*alpha*(real(1.0)-lambda)*(real(1.0)-lambda); 
-	    const real minPos       = sigma*pow(real(1.0) - Acomodo, real(1.0)/real(6.0));
-	    const real minPos2      = minPos*minPos;	    //position of minimum
-
-            real ld = real(0.0);
-
-            if (r2 < minPos2)
-	    {
-                ld = BasicPotentials::LennardJones::SoftCoreType2::lambdaDerivative(rij,r2,epsilon,sigma,lambda,alpha,n);
-            }
-
-            return ld;
-
-        }
     };
 
     using softWCA_DH = NonBondedHessian_<softWCA_DH_>;
