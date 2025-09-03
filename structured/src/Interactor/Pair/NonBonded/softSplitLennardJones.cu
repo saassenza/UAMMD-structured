@@ -16,7 +16,7 @@ namespace structured{
 namespace Potentials{
 namespace NonBonded{
 
-    struct softWCA_DH_{
+    struct softSplitLennardJones_{
 
         using LennardJonesType      = typename BasicPotentials::LennardJones::Type1;
 
@@ -34,11 +34,11 @@ namespace NonBonded{
             ParametersPairsIterator paramPairIterator;
 
 	    real cutOff;
+	    real cutOffFactor;
 	    real lambda;
 
-	    real ELECOEF;
-	    real debyeLength;
-	    real dielectricConstant;
+	    real epsilon_r;
+            real epsilon_a;
 
 	    real alpha;
 	    int n;
@@ -47,15 +47,14 @@ namespace NonBonded{
         //Potential parameters
         struct StorageData{
 
-            std::shared_ptr<ParameterPairsHandler> WCAParam;
+            std::shared_ptr<ParameterPairsHandler> LJParam;
 
             real cutOffFactor;
             real cutOff;
 	    real lambda;
 
-	    real ELECOEF;
-	    real debyeLength;
-	    real dielectricConstant;
+	    real epsilon_r;
+            real epsilon_a;
 
 	    real alpha;
 	    int n;
@@ -71,19 +70,18 @@ namespace NonBonded{
             ComputationalData computational;
 
             std::shared_ptr<ParticleData> pd = pg->getParticleData();
-	    computational.charge = pd->getCharge(access::location::gpu, access::mode::read).raw();
 
             computational.pos = pd->getPos(access::location::gpu, access::mode::read).raw();
             computational.box = gd->getEnsemble()->getBox();
 
-            computational.paramPairIterator = storage.WCAParam->getPairIterator();
+            computational.paramPairIterator = storage.LJParam->getPairIterator();
 	    
 	    computational.cutOff = storage.cutOff;
+	    computational.cutOffFactor = storage.cutOffFactor;
 	    computational.lambda = storage.lambda;
 
-	    computational.debyeLength = storage.debyeLength;
-	    computational.ELECOEF = storage.ELECOEF;
-	    computational.dielectricConstant = storage.dielectricConstant;
+	    computational.epsilon_r = storage.epsilon_r;
+	    computational.epsilon_a = storage.epsilon_a;
 
 	    computational.alpha = storage.alpha;
 	    computational.n = storage.n;
@@ -99,14 +97,13 @@ namespace NonBonded{
 
             StorageData storage;
             
-	    storage.WCAParam = std::make_shared<ParameterPairsHandler>(gd,pg,data);
+	    storage.LJParam = std::make_shared<ParameterPairsHandler>(gd,pg,data);
 
             storage.cutOffFactor  = data.getParameter<real>("cutOffFactor");
             storage.lambda = data.getParameter<real>("lambda");
             
-	    storage.debyeLength = data.getParameter<real>("debyeLength");;
-	    storage.ELECOEF = gd->getUnits()->getElectricConversionFactor();
-	    storage.dielectricConstant = data.getParameter<real>("dielectricConstant");;
+	    storage.epsilon_r = data.getParameter<real>("epsilon_r");;
+	    storage.epsilon_a = data.getParameter<real>("epsilon_a");;
 
 	    storage.alpha = data.getParameter<real>("alpha");;
 	    storage.n = data.getParameter<real>("n");;
@@ -116,7 +113,7 @@ namespace NonBonded{
 
             ///////////////////////////////////////////////////////////
 
-            auto pairsParam = storage.WCAParam->getPairParameters();
+            auto pairsParam = storage.LJParam->getPairParameters();
 
             real maxSigma = 0.0;
             for(auto p : pairsParam){
@@ -125,7 +122,7 @@ namespace NonBonded{
 
             storage.cutOff = maxSigma*storage.cutOffFactor;
 
-            System::log<System::MESSAGE>("[softWCA_DH] cutOff: %f" ,storage.cutOff);
+            System::log<System::MESSAGE>("[softSplitLennardJones] cutOff: %f" ,storage.cutOff);
 
             return storage;
         }
@@ -142,6 +139,8 @@ namespace NonBonded{
             const real alpha = computational.alpha;
             const int n = computational.n;
 
+            const real epsilon_a = computational.epsilon_a;
+            const real epsilon_r = computational.epsilon_r;
             const real epsilon = computational.paramPairIterator(index_i,index_j).epsilon;
             const real sigma   = computational.paramPairIterator(index_i,index_j).sigma;
 
@@ -149,26 +148,29 @@ namespace NonBonded{
 
             real e = real(0.0);
 
-	    // DH
-            real cutOff2 = computational.cutOff*computational.cutOff;
-	    const real chgProduct = computational.charge[index_i]*computational.charge[index_j];
-            if(r2<=cutOff2 and chgProduct != real(0.0)){
-                real prefactorDH = computational.ELECOEF/computational.dielectricConstant*chgProduct;
-		real lD = computational.debyeLength;
-                real dist = sqrt(r2);
-                e += prefactorDH*exp(-dist/lD)/(dist + (real(1.0)-lambda)*lD);
-            }
-
-            // WCA
-            const real Acomodo  = alpha*(real(1.0)-lambda)*(real(1.0)-lambda);
-            const real minPos   = sigma*pow(real(1.0) - Acomodo, real(1.0)/real(6.0));
-            const real minPos2  = minPos*minPos;            //position of minimum
-            if (r2 < minPos2)
-            {
-		    real rnorm2 = r2/(sigma*sigma);
-		    real fLambdaInv = real(1.0)/(Acomodo + rnorm2*rnorm2*rnorm2);
-                    e += epsilon*pow(lambda, n)*(fLambdaInv*fLambdaInv - real(2.0)*fLambdaInv + real(1.0)); 
-            }
+	    real cutOff2 = sigma*computational.cutOffFactor;
+	    cutOff2 = cutOff2*cutOff2;
+            if(r2<=cutOff2)
+	    {
+		    const real Acomodo  = alpha*(real(1.0)-lambda)*(real(1.0)-lambda);
+            	    const real minPos   = sigma*pow(real(2.0) - Acomodo, real(1.0)/real(6.0));
+            	    const real minPos2  = minPos*minPos;            //position of minimum
+		    real eps_a = epsilon*epsilon_a;
+		    real eps; 
+            	    if (r2 < minPos2)
+            	    {
+			    eps = epsilon_r;
+		    }
+		    else
+		    {
+			    eps = eps_a;
+		    }
+	    	    real rnorm2 = r2/(sigma*sigma);
+	    	    real fLambdaInv = real(1.0)/(Acomodo + rnorm2*rnorm2*rnorm2);
+		    real lambdaN = pow(lambda, n);
+            	    e += eps*lambdaN*(fLambdaInv*fLambdaInv - real(2.0)*fLambdaInv) + eps*lambdaN; 
+            	    
+	    }
 
             return e;
 
@@ -187,6 +189,8 @@ namespace NonBonded{
             const real alpha = computational.alpha;
             const int n = computational.n;
 
+            const real epsilon_a = computational.epsilon_a;
+            const real epsilon_r = computational.epsilon_r;
             const real epsilon = computational.paramPairIterator(index_i,index_j).epsilon;
             const real sigma   = computational.paramPairIterator(index_i,index_j).sigma;
 
@@ -194,29 +198,28 @@ namespace NonBonded{
 
             real3 f = make_real3(0.0);
 
-	    // DH
-            real cutOff2 = computational.cutOff*computational.cutOff;
-	    const real chgProduct = computational.charge[index_i]*computational.charge[index_j];
-            if(r2>0 and r2<=cutOff2 and chgProduct != real(0.0)){
-                real prefactorDH = computational.ELECOEF/computational.dielectricConstant*chgProduct;
-		real invLD = real(1.0)/computational.debyeLength;
-                real dist = sqrt(r2);
-                real invDistLambda = real(1.0)/(dist + (real(1.0) - lambda)*computational.debyeLength);
-                real fmod = -prefactorDH*exp(-dist*invLD)*invDistLambda/dist*(invLD + invDistLambda);
-
-                f += fmod*rij;
-            }
-
-            // WCA
-            const real Acomodo  = alpha*(real(1.0)-lambda)*(real(1.0)-lambda);
-            const real minPos   = sigma*pow(real(1.0) - Acomodo, real(1.0)/real(6.0));
-            const real minPos2  = minPos*minPos;            //position of minimum
-            if (r2 < minPos2)
-            {
+	    real cutOff2 = sigma*computational.cutOffFactor;
+	    cutOff2 = cutOff2*cutOff2;
+            if(r2<=cutOff2)
+	    {
+		    const real Acomodo  = alpha*(real(1.0)-lambda)*(real(1.0)-lambda);
+            	    const real minPos   = sigma*pow(real(2.0) - Acomodo, real(1.0)/real(6.0));
+            	    const real minPos2  = minPos*minPos;            //position of minimum
+		    real eps_a = epsilon*epsilon_a;
+		    real eps; 
+            	    if (r2 < minPos2)
+            	    {
+			    eps = epsilon_r;
+		    }
+		    else
+		    {
+			    eps = eps_a;
+		    }
+		    
 		    real rnorm2 = r2/(sigma*sigma);
 		    real rnorm6 = rnorm2*rnorm2*rnorm2;
 		    real fLambda = Acomodo + rnorm6;
-		    real fmod = -real(12.0)*epsilon*pow(lambda, n)/(r2*fLambda*fLambda*fLambda)*rnorm6*(real(1.0) - fLambda);
+		    real fmod = -real(24.0)*eps*pow(lambda, n)/(r2*fLambda*fLambda*fLambda)*rnorm6*(real(2.0) - fLambda);
     
 		    f += fmod*rij;
             }
@@ -234,11 +237,11 @@ namespace NonBonded{
 
     };
 
-    using softWCA_DH = NonBondedHessian_<softWCA_DH_>;
+    using softSplitLennardJones = NonBondedHessian_<softSplitLennardJones_>;
 
 }}}}
 
 REGISTER_NONBONDED_INTERACTOR(
-    NonBonded,softWCA_DH,
-    uammd::structured::Interactor::PairInteractor<uammd::structured::Potentials::NonBonded::softWCA_DH>
+    NonBonded,softSplitLennardJones,
+    uammd::structured::Interactor::PairInteractor<uammd::structured::Potentials::NonBonded::softSplitLennardJones>
 )

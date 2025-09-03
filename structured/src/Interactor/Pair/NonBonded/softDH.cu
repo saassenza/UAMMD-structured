@@ -16,7 +16,7 @@ namespace structured{
 namespace Potentials{
 namespace NonBonded{
 
-    struct softWCA_DH_{
+    struct softDH_{
 
         using LennardJonesType      = typename BasicPotentials::LennardJones::Type1;
 
@@ -31,23 +31,16 @@ namespace NonBonded{
 	    real*  charge;
             Box box;
 
-            ParametersPairsIterator paramPairIterator;
-
 	    real cutOff;
 	    real lambda;
 
 	    real ELECOEF;
 	    real debyeLength;
 	    real dielectricConstant;
-
-	    real alpha;
-	    int n;
         };
 
         //Potential parameters
         struct StorageData{
-
-            std::shared_ptr<ParameterPairsHandler> WCAParam;
 
             real cutOffFactor;
             real cutOff;
@@ -56,9 +49,6 @@ namespace NonBonded{
 	    real ELECOEF;
 	    real debyeLength;
 	    real dielectricConstant;
-
-	    real alpha;
-	    int n;
         };
 
         //Computational data getter
@@ -76,17 +66,12 @@ namespace NonBonded{
             computational.pos = pd->getPos(access::location::gpu, access::mode::read).raw();
             computational.box = gd->getEnsemble()->getBox();
 
-            computational.paramPairIterator = storage.WCAParam->getPairIterator();
-	    
 	    computational.cutOff = storage.cutOff;
 	    computational.lambda = storage.lambda;
 
 	    computational.debyeLength = storage.debyeLength;
 	    computational.ELECOEF = storage.ELECOEF;
 	    computational.dielectricConstant = storage.dielectricConstant;
-
-	    computational.alpha = storage.alpha;
-	    computational.n = storage.n;
 
             return computational;
         }
@@ -99,8 +84,6 @@ namespace NonBonded{
 
             StorageData storage;
             
-	    storage.WCAParam = std::make_shared<ParameterPairsHandler>(gd,pg,data);
-
             storage.cutOffFactor  = data.getParameter<real>("cutOffFactor");
             storage.lambda = data.getParameter<real>("lambda");
             
@@ -108,24 +91,14 @@ namespace NonBonded{
 	    storage.ELECOEF = gd->getUnits()->getElectricConversionFactor();
 	    storage.dielectricConstant = data.getParameter<real>("dielectricConstant");;
 
-	    storage.alpha = data.getParameter<real>("alpha");;
-	    storage.n = data.getParameter<real>("n");;
-
             ///////////////////////////////////////////////////////////
 
 
             ///////////////////////////////////////////////////////////
 
-            auto pairsParam = storage.WCAParam->getPairParameters();
+            storage.cutOff = storage.debyeLength*storage.cutOffFactor;
 
-            real maxSigma = 0.0;
-            for(auto p : pairsParam){
-                maxSigma=std::max(maxSigma,p.second.sigma);
-            }
-
-            storage.cutOff = maxSigma*storage.cutOffFactor;
-
-            System::log<System::MESSAGE>("[softWCA_DH] cutOff: %f" ,storage.cutOff);
+            System::log<System::MESSAGE>("[softDH] cutOff: %f" ,storage.cutOff);
 
             return storage;
         }
@@ -139,11 +112,6 @@ namespace NonBonded{
             const real3 rij = computational.box.apply_pbc(make_real3(posj)-make_real3(posi));
 
             const real lambda = computational.lambda;
-            const real alpha = computational.alpha;
-            const int n = computational.n;
-
-            const real epsilon = computational.paramPairIterator(index_i,index_j).epsilon;
-            const real sigma   = computational.paramPairIterator(index_i,index_j).sigma;
 
             const real r2 = dot(rij, rij);
 
@@ -156,18 +124,7 @@ namespace NonBonded{
                 real prefactorDH = computational.ELECOEF/computational.dielectricConstant*chgProduct;
 		real lD = computational.debyeLength;
                 real dist = sqrt(r2);
-                e += prefactorDH*exp(-dist/lD)/(dist + (real(1.0)-lambda)*lD);
-            }
-
-            // WCA
-            const real Acomodo  = alpha*(real(1.0)-lambda)*(real(1.0)-lambda);
-            const real minPos   = sigma*pow(real(1.0) - Acomodo, real(1.0)/real(6.0));
-            const real minPos2  = minPos*minPos;            //position of minimum
-            if (r2 < minPos2)
-            {
-		    real rnorm2 = r2/(sigma*sigma);
-		    real fLambdaInv = real(1.0)/(Acomodo + rnorm2*rnorm2*rnorm2);
-                    e += epsilon*pow(lambda, n)*(fLambdaInv*fLambdaInv - real(2.0)*fLambdaInv + real(1.0)); 
+                e += prefactorDH*exp(-dist/lD)*lambda/(dist + (real(1.0)-lambda)*lD);
             }
 
             return e;
@@ -184,11 +141,6 @@ namespace NonBonded{
             const real3 rij = computational.box.apply_pbc(make_real3(posj)-make_real3(posi));
             
 	    const real lambda = computational.lambda;
-            const real alpha = computational.alpha;
-            const int n = computational.n;
-
-            const real epsilon = computational.paramPairIterator(index_i,index_j).epsilon;
-            const real sigma   = computational.paramPairIterator(index_i,index_j).sigma;
 
             const real r2 = dot(rij, rij);
 
@@ -202,23 +154,9 @@ namespace NonBonded{
 		real invLD = real(1.0)/computational.debyeLength;
                 real dist = sqrt(r2);
                 real invDistLambda = real(1.0)/(dist + (real(1.0) - lambda)*computational.debyeLength);
-                real fmod = -prefactorDH*exp(-dist*invLD)*invDistLambda/dist*(invLD + invDistLambda);
+                real fmod = -prefactorDH*exp(-dist*invLD)*invDistLambda*lambda/dist*(invLD + invDistLambda);
 
                 f += fmod*rij;
-            }
-
-            // WCA
-            const real Acomodo  = alpha*(real(1.0)-lambda)*(real(1.0)-lambda);
-            const real minPos   = sigma*pow(real(1.0) - Acomodo, real(1.0)/real(6.0));
-            const real minPos2  = minPos*minPos;            //position of minimum
-            if (r2 < minPos2)
-            {
-		    real rnorm2 = r2/(sigma*sigma);
-		    real rnorm6 = rnorm2*rnorm2*rnorm2;
-		    real fLambda = Acomodo + rnorm6;
-		    real fmod = -real(12.0)*epsilon*pow(lambda, n)/(r2*fLambda*fLambda*fLambda)*rnorm6*(real(1.0) - fLambda);
-    
-		    f += fmod*rij;
             }
 
             return f;
@@ -234,11 +172,11 @@ namespace NonBonded{
 
     };
 
-    using softWCA_DH = NonBondedHessian_<softWCA_DH_>;
+    using softDH = NonBondedHessian_<softDH_>;
 
 }}}}
 
 REGISTER_NONBONDED_INTERACTOR(
-    NonBonded,softWCA_DH,
-    uammd::structured::Interactor::PairInteractor<uammd::structured::Potentials::NonBonded::softWCA_DH>
+    NonBonded,softDH,
+    uammd::structured::Interactor::PairInteractor<uammd::structured::Potentials::NonBonded::softDH>
 )

@@ -215,7 +215,9 @@
             ["NonBonded", "LennardJonesSoftCoreType2", "LennardJonesSoftCore.cu"],
             ["NonBonded", "SplitLennardJones", "SplitLennardJones.cu"],
             ["NonBonded", "WCA_DH", "WCA_DH.cu"],
-            ["NonBonded", "softWCA_DH", "softWCA_DH.cu"]
+            ["NonBonded", "softWCA_DH", "softWCA_DH.cu"],
+            ["NonBonded", "softDH", "softDH.cu"],
+            ["NonBonded", "softSplitLennardJones", "softSplitLennardJones.cu"]
         ],
         "Patches": [
             ["SurfacePatches", "Linker", "Linker.cu"],
@@ -236,7 +238,8 @@
             ["Condition", "nonExclTypeGroup1Intra_nonExclTypeGroup2Intra_nonExclInter_nonExclNoGroup", "NonExclTypeGroup1Intra_NonExclTypeGroup2Intra_NonExclInter_NonExclNoGroup.cu"],
             ["Condition", "nonExclIntra_nonExclInter_nonExclCharged", "NonExclIntra_NonExclInter_NonExclCharged.cu"],
             ["Condition", "nonExclIntra_nonExclInter_nonExclInterCharged", "NonExclIntra_NonExclInter_NonExclInterCharged.cu"],
-            ["Condition", "interDifferentType", "InterDifferentType.cu"]
+            ["Condition", "interDifferentType", "InterDifferentType.cu"],
+            ["Condition", "NonExclIdGroup1Intra_NonExclIdGroup2Intra_NonExclInter_NonExclNoGroup", "NonExclIdGroup1Intra_NonExclIdGroup2Intra_NonExclInter_NonExclNoGroup.cu"]
         ]
     }
 }
