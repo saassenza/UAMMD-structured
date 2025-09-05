@@ -156,7 +156,7 @@ namespace NonBonded{
                 real prefactorDH = computational.ELECOEF/computational.dielectricConstant*chgProduct;
 		real lD = computational.debyeLength;
                 real dist = sqrt(r2);
-                e += prefactorDH*exp(-dist/lD)/(dist + (real(1.0)-lambda)*lD);
+                e += prefactorDH*exp(-dist/lD)*lambda/(dist + (real(1.0)-lambda)*lD);
             }
 
             // WCA
@@ -202,7 +202,7 @@ namespace NonBonded{
 		real invLD = real(1.0)/computational.debyeLength;
                 real dist = sqrt(r2);
                 real invDistLambda = real(1.0)/(dist + (real(1.0) - lambda)*computational.debyeLength);
-                real fmod = -prefactorDH*exp(-dist*invLD)*invDistLambda/dist*(invLD + invDistLambda);
+                real fmod = -prefactorDH*exp(-dist*invLD)*lambda*invDistLambda/dist*(invLD + invDistLambda);
 
                 f += fmod*rij;
             }
