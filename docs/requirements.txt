@@ -1,2 +1,2 @@
-Sphinx>=5,<6
+Sphinx>=7   # Sphinx 5 imports imghdr, removed in Python 3.13
 sphinx_rtd_theme
