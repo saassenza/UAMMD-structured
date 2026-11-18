@@ -41,6 +41,13 @@ if (BUILD_LIBRARY)
   set(CMAKE_CUDA_STANDARD 17)
   set(CMAKE_CUDA_STANDARD_REQUIRED ON)
   set(CMAKE_CUDA_SEPARABLE_COMPILATION OFF)
+  # One shared CUDA runtime for the launcher and libuammd_structured.so. With the default (static cudart)
+  # each binary gets its own runtime copy; kernels instantiated in both (e.g. ParticleGroup's
+  # updateGroupIndices) are then registered with one runtime but launched through the other, the group
+  # index map is never filled and the neighbour list fails with error 700 (VerletConditionalListSet).
+  if(NOT DEFINED CMAKE_CUDA_RUNTIME_LIBRARY)
+    set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
+  endif()
   if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES "all")
   endif()

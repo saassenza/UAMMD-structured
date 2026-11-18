@@ -93,7 +93,6 @@ namespace Bond1{
             const real  F0    = real(bondParam.F0);
 
 	    real3 vec;
-	    real3 vecq;
 	    vec = box.apply_pbc(posk - posj);
 	    vec = normalize(vec);
 	    const real3 f = make_real3(F0*vec);
