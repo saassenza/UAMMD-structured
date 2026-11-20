@@ -126,6 +126,16 @@ if (BUILD_LIBRARY)
     set(${output_var} "${properties}" PARENT_SCOPE)
   endfunction()
 
+  # Write a generated header only if its content changed. file(WRITE) always updated the
+  # timestamp, which made every re-configure recompile the whole library. The templates below
+  # reproduce the committed headers exactly, so a configure leaves a clean checkout untouched.
+  function(write_if_different output_file content)
+    get_filename_component(name ${output_file} NAME)
+    set(tmp_file "${CMAKE_CURRENT_BINARY_DIR}/generated_tmp/${name}")
+    file(WRITE ${tmp_file} "${content}")
+    file(COPY_FILE ${tmp_file} ${output_file} ONLY_IF_DIFFERENT)
+  endfunction()
+
   # List of sections to process
   set(SECTIONS ParticleData State Units Fundamental Ensemble)
 
@@ -136,11 +146,8 @@ if (BUILD_LIBRARY)
 
     generate_property_definitions(${UAMMD_DATA_PATH} ${SECTION} PROPERTIES)
 
-    file(WRITE ${HEADER_FILE}
-      "#pragma once
-  #define ${SECTION_UPPER}_PROPERTIES \\
-  ${PROPERTIES}
-  ")
+    write_if_different(${HEADER_FILE}
+      "#pragma once\n\n#define ${SECTION_UPPER}_PROPERTIES \\\n${PROPERTIES}\n")
 
     # Add a custom target for generating the header file
     add_custom_target(
@@ -191,14 +198,8 @@ if (BUILD_LIBRARY)
     string(REGEX REPLACE "\\\\n$" "" combinations_list "${combinations_list}")
 
     #Write the header file
-    file(WRITE ${output_file}
-      "#pragma once
-  #define COMPUTABLES \\
-  ${computables_list}
-
-  #define COMPUTABLES_COMBINATIONS \\
-  ${combinations_list}
-  ")
+    write_if_different(${output_file}
+      "#pragma once\n\n#define COMPUTABLES \\\n${computables_list}\n\n#define COMPUTABLES_COMBINATIONS \\\n${combinations_list}\n")
 
   endfunction()
 
