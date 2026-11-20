@@ -26,7 +26,9 @@ The Lennard-Jones term can be any of the three types (Type1, Type2, or Type3) as
 * **parameters**:
 
   * ``cutOffNPFactor``: ``real``: Interaction range for LJ as a multiple of sigma
+  * ``cutOffNP``: ``real``: Fixed range of the same term, for all pairs :math:`[distance]`. Alternative to ``cutOffNPFactor``: give exactly one of the two
   * ``cutOffDHFactor``: ``real``: Interaction range for DH as a multiple of the Debye length
+  * ``cutOffDH``: ``real``: Fixed range of the same term, for all pairs :math:`[distance]`. Alternative to ``cutOffDHFactor``: give exactly one of the two
   * ``dielectricConstant``: ``real``: Relative permittivity of the medium :math:`\epsilon_r`
   * ``debyeLength``: ``real``: Debye length :math:`\lambda_D` :math:`[distance]`
 

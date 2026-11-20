@@ -35,7 +35,9 @@ Both terms are weighted by SASA-dependent factors for each residue.
 * **parameters**:
 
   * ``cutOffNPFactor``: ``real``: Interaction range for non-polar term as a multiple of sigma
+  * ``cutOffNP``: ``real``: Fixed range of the same term, for all pairs :math:`[distance]`. Alternative to ``cutOffNPFactor``: give exactly one of the two
   * ``cutOffDHFactor``: ``real``: Interaction range for electrostatics as a multiple of the Debye length
+  * ``cutOffDH``: ``real``: Fixed range of the same term, for all pairs :math:`[distance]`. Alternative to ``cutOffDHFactor``: give exactly one of the two
   * ``dielectricConstant``: ``real``: Relative permittivity of the medium :math:`\epsilon_r`
   * ``debyeLength``: ``real``: Debye length :math:`\lambda_D` :math:`[distance]`
   * ``sasaModel``: ``string``: SASA weighting model (options: "A", "B", "C", "D", "E", "F")

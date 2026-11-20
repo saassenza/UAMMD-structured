@@ -49,7 +49,7 @@ namespace NonBonded{
 
             std::shared_ptr<ParameterPairsHandler> WCAParam;
 
-            real cutOffFactor;
+            CutOff cutOffRule;
             real cutOff;
 	    real lambda;
 
@@ -101,7 +101,7 @@ namespace NonBonded{
             
 	    storage.WCAParam = std::make_shared<ParameterPairsHandler>(gd,pg,data);
 
-            storage.cutOffFactor  = data.getParameter<real>("cutOffFactor");
+            storage.cutOffRule = CutOff::read(data,"softWCA_DH");
             storage.lambda = data.getParameter<real>("lambda");
             
 	    storage.debyeLength = data.getParameter<real>("debyeLength");;
@@ -123,7 +123,7 @@ namespace NonBonded{
                 maxSigma=std::max(maxSigma,p.second.sigma);
             }
 
-            storage.cutOff = maxSigma*storage.cutOffFactor;
+            storage.cutOff = storage.cutOffRule.get(maxSigma);
 
             System::log<System::MESSAGE>("[softWCA_DH] cutOff: %f" ,storage.cutOff);
 

@@ -33,7 +33,7 @@ namespace NonBonded{
 
             ParametersPairsIterator paramPairIterator;
 
-            real cutOffFactor;
+            CutOff cutOffRule;
         };
 
         //Potential parameters
@@ -41,7 +41,7 @@ namespace NonBonded{
 
             std::shared_ptr<ParameterPairsHandler> ljParam;
 
-            real cutOffFactor;
+            CutOff cutOffRule;
             real cutOff;
         };
 
@@ -61,7 +61,7 @@ namespace NonBonded{
 
             computational.paramPairIterator = storage.ljParam->getPairIterator();
 
-            computational.cutOffFactor = storage.cutOffFactor;
+            computational.cutOffRule = storage.cutOffRule;
 
             return computational;
         }
@@ -73,7 +73,7 @@ namespace NonBonded{
                                                    DataEntry& data){
 
             StorageData storage;
-            storage.cutOffFactor  = data.getParameter<real>("cutOffFactor");
+            storage.cutOffRule = CutOff::read(data,"LennardJones");
 
             ///////////////////////////////////////////////////////////
 
@@ -89,7 +89,7 @@ namespace NonBonded{
                 maxSigma=std::max(maxSigma,p.second.sigma);
             }
 
-            storage.cutOff = maxSigma*storage.cutOffFactor;
+            storage.cutOff = storage.cutOffRule.get(maxSigma);
 
             System::log<System::MESSAGE>("[LennardJones] cutOff: %f" ,storage.cutOff);
 
@@ -111,8 +111,7 @@ namespace NonBonded{
 
             real e = real(0.0);
 
-            real cutOff2=sigma*computational.cutOffFactor;
-                 cutOff2=cutOff2*cutOff2;
+            const real cutOff2 = computational.cutOffRule.get2(sigma);
             if(r2<=cutOff2){
                 e = LennardJonesType::energy(rij,r2,epsilon,sigma);
             }
@@ -137,8 +136,7 @@ namespace NonBonded{
 
             real3 f = make_real3(0.0);
 
-            real cutOff2=sigma*computational.cutOffFactor;
-                 cutOff2=cutOff2*cutOff2;
+            const real cutOff2 = computational.cutOffRule.get2(sigma);
             if(r2<=cutOff2){
                 f = LennardJonesType::force(rij,r2,epsilon,sigma);
             }
@@ -161,8 +159,7 @@ namespace NonBonded{
 
             tensor3 H = tensor3(0.0);
 
-            real cutOff2=sigma*computational.cutOffFactor;
-                 cutOff2=cutOff2*cutOff2;
+            const real cutOff2 = computational.cutOffRule.get2(sigma);
             if(r2<=cutOff2){
                 H = LennardJonesType::hessian(rij,r2,epsilon,sigma);
             }

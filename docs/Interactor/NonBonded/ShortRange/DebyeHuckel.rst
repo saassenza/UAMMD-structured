@@ -21,6 +21,7 @@ where:
 * **parameters**:
 
   * ``cutOffFactor``: ``real``: Interaction range as a multiple of the Debye length
+  * ``cutOff``: ``real``: Fixed interaction range, the same for all pairs :math:`[distance]`. Alternative to ``cutOffFactor``: give exactly one of the two
   * ``dielectricConstant``: ``real``: Relative permittivity of the medium :math:`\epsilon_r`
   * ``debyeLength``: ``real``: Debye length :math:`\lambda_D` :math:`[distance]`
 

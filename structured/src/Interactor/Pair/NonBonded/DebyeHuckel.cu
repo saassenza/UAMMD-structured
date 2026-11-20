@@ -29,7 +29,7 @@ namespace NonBonded{
             real dielectricConstant;
             real debyeLength;
 
-            real cutOffFactor;
+            CutOff cutOffRule;
         };
 
         //Potential parameters
@@ -40,7 +40,7 @@ namespace NonBonded{
             real dielectricConstant;
             real debyeLength;
 
-            real cutOffFactor;
+            CutOff cutOffRule;
             real cutOff;
         };
 
@@ -64,7 +64,7 @@ namespace NonBonded{
             computational.dielectricConstant = storage.dielectricConstant;
             computational.debyeLength = storage.debyeLength;
 
-            computational.cutOffFactor = storage.cutOffFactor;
+            computational.cutOffRule = storage.cutOffRule;
 
             return computational;
         }
@@ -82,8 +82,8 @@ namespace NonBonded{
             storage.dielectricConstant = data.getParameter<real>("dielectricConstant");
             storage.debyeLength        = data.getParameter<real>("debyeLength");
 
-            storage.cutOffFactor = data.getParameter<real>("cutOffFactor");
-            storage.cutOff       = storage.cutOffFactor*storage.debyeLength;
+            storage.cutOffRule = CutOff::read(data,"DebyeHuckel");
+            storage.cutOff       = storage.cutOffRule.get(storage.debyeLength);
 
             System::log<System::MESSAGE>("[DebyeHuckel] cutOff: %f" ,storage.cutOff);
 
@@ -103,8 +103,7 @@ namespace NonBonded{
 
             real e = real(0.0);
 
-            real cutOff2 = computational.debyeLength*computational.cutOffFactor;
-                 cutOff2 = cutOff2*cutOff2;
+            const real cutOff2 = computational.cutOffRule.get2(computational.debyeLength);
             const real chgProduct = computational.charge[index_i]*computational.charge[index_j];
             if(r2>0 and r2<=cutOff2 and chgProduct != real(0.0)){
 
@@ -129,8 +128,7 @@ namespace NonBonded{
 
             real3 f = make_real3(real(0.0));
 
-            real cutOff2 = computational.debyeLength*computational.cutOffFactor;
-                 cutOff2 = cutOff2*cutOff2;
+            const real cutOff2 = computational.cutOffRule.get2(computational.debyeLength);
             const real chgProduct = computational.charge[index_i]*computational.charge[index_j];
             if(r2>0 and r2<=cutOff2 and chgProduct != real(0.0)){
 
@@ -155,8 +153,7 @@ namespace NonBonded{
 
             tensor3 H = tensor3(real(0.0));
 
-            real cutOff2 = computational.debyeLength*computational.cutOffFactor;
-                 cutOff2 = cutOff2*cutOff2;
+            const real cutOff2 = computational.cutOffRule.get2(computational.debyeLength);
             const real chgProduct = computational.charge[index_i]*computational.charge[index_j];
             if(r2>0 and r2<=cutOff2 and chgProduct != real(0.0)){
 

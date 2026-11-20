@@ -34,7 +34,7 @@ namespace NonBonded{
             ParametersPairsIterator paramPairIterator;
 
 	    real cutOff;
-	    real cutOffFactor;
+	    CutOff cutOffRule;
 	    real lambda;
 
 	    real epsilon_r;
@@ -49,7 +49,7 @@ namespace NonBonded{
 
             std::shared_ptr<ParameterPairsHandler> LJParam;
 
-            real cutOffFactor;
+            CutOff cutOffRule;
             real cutOff;
 	    real lambda;
 
@@ -77,7 +77,7 @@ namespace NonBonded{
             computational.paramPairIterator = storage.LJParam->getPairIterator();
 	    
 	    computational.cutOff = storage.cutOff;
-	    computational.cutOffFactor = storage.cutOffFactor;
+	    computational.cutOffRule = storage.cutOffRule;
 	    computational.lambda = storage.lambda;
 
 	    computational.epsilon_r = storage.epsilon_r;
@@ -99,7 +99,7 @@ namespace NonBonded{
             
 	    storage.LJParam = std::make_shared<ParameterPairsHandler>(gd,pg,data);
 
-            storage.cutOffFactor  = data.getParameter<real>("cutOffFactor");
+            storage.cutOffRule = CutOff::read(data,"softSplitLennardJones");
             storage.lambda = data.getParameter<real>("lambda");
             
 	    storage.epsilon_r = data.getParameter<real>("epsilon_r");;
@@ -120,7 +120,7 @@ namespace NonBonded{
                 maxSigma=std::max(maxSigma,p.second.sigma);
             }
 
-            storage.cutOff = maxSigma*storage.cutOffFactor;
+            storage.cutOff = storage.cutOffRule.get(maxSigma);
 
             System::log<System::MESSAGE>("[softSplitLennardJones] cutOff: %f" ,storage.cutOff);
 
@@ -148,8 +148,7 @@ namespace NonBonded{
 
             real e = real(0.0);
 
-	    real cutOff2 = sigma*computational.cutOffFactor;
-	    cutOff2 = cutOff2*cutOff2;
+	    const real cutOff2 = computational.cutOffRule.get2(sigma);
             if(r2<=cutOff2)
 	    {
 		    const real Acomodo  = alpha*(real(1.0)-lambda)*(real(1.0)-lambda);
@@ -198,8 +197,7 @@ namespace NonBonded{
 
             real3 f = make_real3(0.0);
 
-	    real cutOff2 = sigma*computational.cutOffFactor;
-	    cutOff2 = cutOff2*cutOff2;
+	    const real cutOff2 = computational.cutOffRule.get2(sigma);
             if(r2<=cutOff2)
 	    {
 		    const real Acomodo  = alpha*(real(1.0)-lambda)*(real(1.0)-lambda);

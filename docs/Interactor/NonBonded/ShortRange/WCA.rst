@@ -47,6 +47,7 @@ For all types:
 * **parameters**:
 
   * ``cutOffFactor``: ``real``: Interaction range as a multiple of sigma (typically 1.122462048309373 for Type1 and Type2, 1.0747892746492746 for Type3)
+  * ``cutOff``: ``real``: Fixed interaction range, the same for all pairs :math:`[distance]`. Alternative to ``cutOffFactor``: give exactly one of the two
 
 * **data**:
 

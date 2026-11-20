@@ -45,7 +45,7 @@ namespace NonBonded{
 
             std::shared_ptr<ParameterPairsHandler> WCAParam;
 
-            real cutOffFactor;
+            CutOff cutOffRule;
             real cutOff;
 
 	    real ELECOEF;
@@ -89,7 +89,7 @@ namespace NonBonded{
             
 	    storage.WCAParam = std::make_shared<ParameterPairsHandler>(gd,pg,data);
 
-            storage.cutOffFactor  = data.getParameter<real>("cutOffFactor");
+            storage.cutOffRule = CutOff::read(data,"WCA_DH");
             
 	    storage.debyeLength = data.getParameter<real>("debyeLength");;
 	    storage.ELECOEF = gd->getUnits()->getElectricConversionFactor();
@@ -107,7 +107,7 @@ namespace NonBonded{
                 maxSigma=std::max(maxSigma,p.second.sigma);
             }
 
-            storage.cutOff = maxSigma*storage.cutOffFactor;
+            storage.cutOff = storage.cutOffRule.get(maxSigma);
 
             System::log<System::MESSAGE>("[LennardJones] cutOff: %f" ,storage.cutOff);
 

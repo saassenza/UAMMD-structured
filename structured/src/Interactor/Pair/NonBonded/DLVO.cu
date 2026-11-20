@@ -44,8 +44,8 @@ namespace NonBonded{
           real dielectricConstant;
           real debyeLength;
 
-          real cutOffNPFactor;
-          real cutOffDHFactor;
+          CutOff cutOffNPRule;
+          CutOff cutOffDHRule;
         };
 
         //Potential parameters
@@ -58,8 +58,8 @@ namespace NonBonded{
           real dielectricConstant;
           real debyeLength;
 
-          real cutOffNPFactor;
-          real cutOffDHFactor;
+          CutOff cutOffNPRule;
+          CutOff cutOffDHRule;
 
           real cutOff;
         };
@@ -87,8 +87,8 @@ namespace NonBonded{
             computational.dielectricConstant = storage.dielectricConstant;
             computational.debyeLength = storage.debyeLength;
 
-            computational.cutOffNPFactor = storage.cutOffNPFactor;
-            computational.cutOffDHFactor = storage.cutOffDHFactor;
+            computational.cutOffNPRule = storage.cutOffNPRule;
+            computational.cutOffDHRule = storage.cutOffDHRule;
 
             return computational;
         }
@@ -103,8 +103,8 @@ namespace NonBonded{
 
             storage.ELECOEF = gd->getUnits()->getElectricConversionFactor();
 
-            storage.cutOffNPFactor  = data.getParameter<real>("cutOffNPFactor");
-            storage.cutOffDHFactor  = data.getParameter<real>("cutOffDHFactor");
+            storage.cutOffNPRule = CutOff::read(data,"DLVO","cutOffNPFactor","cutOffNP");
+            storage.cutOffDHRule = CutOff::read(data,"DLVO","cutOffDHFactor","cutOffDH");
 
             storage.dielectricConstant = data.getParameter<real>("dielectricConstant");
             storage.debyeLength        = data.getParameter<real>("debyeLength");
@@ -123,8 +123,8 @@ namespace NonBonded{
                 maxSigma=std::max(maxSigma,p.second.sigma);
             }
 
-            real cutOffNP = maxSigma*storage.cutOffNPFactor;
-            real cutOffDH = storage.debyeLength*storage.cutOffDHFactor;
+            real cutOffNP = storage.cutOffNPRule.get(maxSigma);
+            real cutOffDH = storage.cutOffDHRule.get(storage.debyeLength);
 
             storage.cutOff = std::max(cutOffNP,cutOffDH);
 
@@ -147,8 +147,7 @@ namespace NonBonded{
 
             const real sigma = computational.paramPairIterator(index_i, index_j).sigma;
 
-            real cutOffNP2=sigma*computational.cutOffNPFactor;
-                 cutOffNP2=cutOffNP2*cutOffNP2;
+            const real cutOffNP2 = computational.cutOffNPRule.get2(sigma);
             if(r2>0 and r2<=cutOffNP2){
 
                 const real epsilon = computational.paramPairIterator(index_i, index_j).epsilon;
@@ -156,8 +155,7 @@ namespace NonBonded{
                 e += LennardJonesType::energy(rij,r2,epsilon,sigma);
             }
 
-            real cutOffDH2 = computational.debyeLength*computational.cutOffDHFactor;
-                 cutOffDH2 = cutOffDH2*cutOffDH2;
+            const real cutOffDH2 = computational.cutOffDHRule.get2(computational.debyeLength);
             const real chgProduct = computational.charge[index_i]*computational.charge[index_j];
             if(r2>0 and r2<=cutOffDH2 and chgProduct != real(0.0)){
 
@@ -184,8 +182,7 @@ namespace NonBonded{
 
             const real sigma = computational.paramPairIterator(index_i, index_j).sigma;
 
-            real cutOffNP2=sigma*computational.cutOffNPFactor;
-                 cutOffNP2=cutOffNP2*cutOffNP2;
+            const real cutOffNP2 = computational.cutOffNPRule.get2(sigma);
             if(r2>0 and r2<=cutOffNP2){
 
                 const real epsilon = computational.paramPairIterator(index_i, index_j).epsilon;
@@ -193,8 +190,7 @@ namespace NonBonded{
                 f += LennardJonesType::force(rij,r2,epsilon,sigma);
             }
 
-            real cutOffDH2 = computational.debyeLength*computational.cutOffDHFactor;
-                 cutOffDH2 = cutOffDH2*cutOffDH2;
+            const real cutOffDH2 = computational.cutOffDHRule.get2(computational.debyeLength);
             const real chgProduct = computational.charge[index_i]*computational.charge[index_j];
             if(r2>0 and r2<=cutOffDH2 and chgProduct != real(0.0)){
 
@@ -219,8 +215,7 @@ namespace NonBonded{
 
             const real sigma = computational.paramPairIterator(index_i, index_j).sigma;
 
-            real cutOffNP2=sigma*computational.cutOffNPFactor;
-                 cutOffNP2=cutOffNP2*cutOffNP2;
+            const real cutOffNP2 = computational.cutOffNPRule.get2(sigma);
             if(r2>0 and r2<=cutOffNP2){
 
                 const real epsilon = computational.paramPairIterator(index_i, index_j).epsilon;
@@ -228,8 +223,7 @@ namespace NonBonded{
                 H += LennardJonesType::hessian(rij,r2,epsilon,sigma);
             }
 
-            real cutOffDH2 = computational.debyeLength*computational.cutOffDHFactor;
-                 cutOffDH2 = cutOffDH2*cutOffDH2;
+            const real cutOffDH2 = computational.cutOffDHRule.get2(computational.debyeLength);
             const real chgProduct = computational.charge[index_i]*computational.charge[index_j];
             if(r2>0 and r2<=cutOffDH2 and chgProduct != real(0.0)){
 

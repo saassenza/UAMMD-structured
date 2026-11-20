@@ -42,7 +42,7 @@ namespace NonBonded{
         //Potential parameters
         struct StorageData{
 
-            real cutOffFactor;
+            CutOff cutOffRule;
             real cutOff;
 	    real lambda;
 
@@ -84,7 +84,7 @@ namespace NonBonded{
 
             StorageData storage;
             
-            storage.cutOffFactor  = data.getParameter<real>("cutOffFactor");
+            storage.cutOffRule = CutOff::read(data,"softDH");
             storage.lambda = data.getParameter<real>("lambda");
             
 	    storage.debyeLength = data.getParameter<real>("debyeLength");;
@@ -96,7 +96,7 @@ namespace NonBonded{
 
             ///////////////////////////////////////////////////////////
 
-            storage.cutOff = storage.debyeLength*storage.cutOffFactor;
+            storage.cutOff = storage.cutOffRule.get(storage.debyeLength);
 
             System::log<System::MESSAGE>("[softDH] cutOff: %f" ,storage.cutOff);
 

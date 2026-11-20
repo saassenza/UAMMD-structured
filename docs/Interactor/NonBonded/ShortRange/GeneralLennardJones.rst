@@ -51,6 +51,7 @@ For all types:
 * **type**: ``NonBonded``, ``GeneralLennardJonesType1`` (or ``GeneralLennardJonesType2`` or ``GeneralLennardJonesType3``)
 * **parameters**:
   * ``cutOffFactor``: ``real``: Interaction range as a multiple of sigma
+  * ``cutOff``: ``real``: Fixed interaction range, the same for all pairs :math:`[distance]`. Alternative to ``cutOffFactor``: give exactly one of the two
 
 * **data**:
 

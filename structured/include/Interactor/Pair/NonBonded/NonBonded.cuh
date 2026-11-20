@@ -5,6 +5,62 @@ namespace structured{
 namespace Potentials{
 namespace NonBonded{
 
+    // Cutoff of a non-bonded interaction, read from the input parameters.
+    //  - Scaled (default): the cutoff of a pair is factor*scale, where factor is the parameter
+    //    factorName (e.g. "cutOffFactor") and scale is a length chosen by the potential
+    //    (sigma_ij, sum of radii, Debye length, ...).
+    //  - Fixed: if the parameter fixedName (e.g. "cutOff", a distance) is given instead,
+    //    it is the cutoff of every pair, whatever its scale.
+    // Exactly one of the two parameters must be given. Neither mode shifts the energy.
+    struct CutOff{
+
+        real factor = real(-1.0);
+        real fixed  = real(-1.0); // <= 0: scaled mode
+
+        inline __host__ __device__ bool isFixed() const {
+            return fixed > real(0.0);
+        }
+
+        // Cutoff for a pair (or potential) whose length scale is "scale"
+        inline __host__ __device__ real get(const real scale) const {
+            return isFixed() ? fixed : factor*scale;
+        }
+
+        inline __host__ __device__ real get2(const real scale) const {
+            const real rc = get(scale);
+            return rc*rc;
+        }
+
+        static inline __host__ CutOff read(DataEntry& data,
+                                           const std::string& potentialName,
+                                           const std::string& factorName = "cutOffFactor",
+                                           const std::string& fixedName  = "cutOff"){
+            const bool hasFactor = data.isParameterAdded(factorName);
+            const bool hasFixed  = data.isParameterAdded(fixedName);
+
+            if(hasFactor == hasFixed){
+                System::log<System::CRITICAL>("[%s] Exactly one of the parameters \"%s\" (cutoff as a multiple "
+                                              "of the interaction length scale) or \"%s\" (fixed cutoff distance) "
+                                              "must be given",
+                                              potentialName.c_str(), factorName.c_str(), fixedName.c_str());
+            }
+
+            CutOff cut;
+            if(hasFixed){
+                cut.fixed = data.getParameter<real>(fixedName);
+                if(cut.fixed <= real(0.0)){
+                    System::log<System::CRITICAL>("[%s] \"%s\" must be positive (given: %f)",
+                                                  potentialName.c_str(), fixedName.c_str(), cut.fixed);
+                }
+                System::log<System::MESSAGE>("[%s] Fixed cutoff (%s) for all pairs: %f",
+                                             potentialName.c_str(), fixedName.c_str(), cut.fixed);
+            } else {
+                cut.factor = data.getParameter<real>(factorName);
+            }
+            return cut;
+        }
+    };
+
     template <class NonBondedType_>
     struct EnergyTransverser_{
 

@@ -31,7 +31,7 @@ namespace NonBonded{
 
             ParametersPairsIterator paramPairIterator;
 
-            real cutOffFactor;
+            CutOff cutOffRule;
 
             real lambda;
             real alpha;
@@ -43,7 +43,7 @@ namespace NonBonded{
 
             std::shared_ptr<ParameterPairsHandler> ljParam;
 
-            real cutOffFactor;
+            CutOff cutOffRule;
             real cutOff;
 
             real alpha;
@@ -67,7 +67,7 @@ namespace NonBonded{
 
             computational.paramPairIterator = storage.ljParam->getPairIterator();
 
-            computational.cutOffFactor = storage.cutOffFactor;
+            computational.cutOffRule = storage.cutOffRule;
             computational.alpha        = storage.alpha;
             computational.n            = storage.n;
 
@@ -81,11 +81,13 @@ namespace NonBonded{
                                                    DataEntry& data){
 
             StorageData storage;
-            storage.cutOffFactor  = data.getParameter<real>("cutOffFactor");
+            storage.cutOffRule = CutOff::read(data,"LennardJonesSoftCore");
             storage.alpha         = data.getParameter<real>("alpha");
             storage.n             = data.getParameter<int>("n", 2);
 
-            System::log<System::MESSAGE>("[LenardJonesSoftCore] cutOffFactor: %f", storage.cutOffFactor);
+            if(!storage.cutOffRule.isFixed()){
+                System::log<System::MESSAGE>("[LenardJonesSoftCore] cutOffFactor: %f", storage.cutOffRule.factor);
+            }
             System::log<System::MESSAGE>("[LenardJonesSoftCore] alpha: %f", storage.alpha);
             System::log<System::MESSAGE>("[LenardJonesSoftCore] n: %i", storage.n);
 
@@ -103,7 +105,7 @@ namespace NonBonded{
                 maxSigma=std::max(maxSigma,p.second.sigma);
             }
 
-            storage.cutOff = maxSigma*storage.cutOffFactor;
+            storage.cutOff = storage.cutOffRule.get(maxSigma);
 
             System::log<System::MESSAGE>("[LennardJones] cutOff: %f" ,storage.cutOff);
 
@@ -132,8 +134,7 @@ namespace NonBonded{
 
             real e = real(0.0);
 
-            real cutOff2=sigma*computational.cutOffFactor;
-                 cutOff2=cutOff2*cutOff2;
+            const real cutOff2 = computational.cutOffRule.get2(sigma);
             if(r2<=cutOff2){
                 e = LennardJonesType::energy(rij,r2,epsilon,sigma,lambda,alpha,n);
             }
@@ -165,8 +166,7 @@ namespace NonBonded{
 
             real3 f = make_real3(0.0);
 
-            real cutOff2=sigma*computational.cutOffFactor;
-                 cutOff2=cutOff2*cutOff2;
+            const real cutOff2 = computational.cutOffRule.get2(sigma);
             if(r2<=cutOff2){
                 f = LennardJonesType::force(rij,r2,epsilon,sigma,lambda,alpha,n);
             }
@@ -192,8 +192,7 @@ namespace NonBonded{
 
             real ld = real(0.0);
 
-            real cutOff2=sigma*computational.cutOffFactor;
-                 cutOff2=cutOff2*cutOff2;
+            const real cutOff2 = computational.cutOffRule.get2(sigma);
             if(r2<=cutOff2){
                 ld = LennardJonesType::lambdaDerivative(rij,r2,epsilon,sigma,lambda,alpha,n);
             }

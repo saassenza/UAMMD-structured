@@ -32,7 +32,7 @@ namespace NonBonded{
 
             ParametersPairsIterator paramPairIterator;
 
-            real cutOffFactor;
+            CutOff cutOffRule;
 
             real epsilon_r;
             real epsilon_a;
@@ -43,7 +43,7 @@ namespace NonBonded{
 
             std::shared_ptr<ParameterPairsHandler> ljParam;
 
-            real cutOffFactor;
+            CutOff cutOffRule;
             real cutOff;
 
             real epsilon_r;
@@ -66,7 +66,7 @@ namespace NonBonded{
 
             computational.paramPairIterator = storage.ljParam->getPairIterator();
 
-            computational.cutOffFactor = storage.cutOffFactor;
+            computational.cutOffRule = storage.cutOffRule;
 
             computational.epsilon_r = storage.epsilon_r;
             computational.epsilon_a = storage.epsilon_a;
@@ -81,7 +81,7 @@ namespace NonBonded{
                                                    DataEntry& data){
 
             StorageData storage;
-            storage.cutOffFactor  = data.getParameter<real>("cutOffFactor");
+            storage.cutOffRule = CutOff::read(data,"SplitLennardJones");
 
             storage.epsilon_r = data.getParameter<real>("epsilon_r");
             storage.epsilon_a = data.getParameter<real>("epsilon_a");
@@ -100,7 +100,7 @@ namespace NonBonded{
                 maxSigma=std::max(maxSigma,p.second.sigma);
             }
 
-            storage.cutOff = maxSigma*storage.cutOffFactor;
+            storage.cutOff = storage.cutOffRule.get(maxSigma);
 
             System::log<System::MESSAGE>("[LennardJones] cutOff: %f" ,storage.cutOff);
 
@@ -125,8 +125,7 @@ namespace NonBonded{
 
             real e = real(0.0);
 
-            real cutOff2=sigma*computational.cutOffFactor;
-                 cutOff2=cutOff2*cutOff2;
+            const real cutOff2 = computational.cutOffRule.get2(sigma);
             if(r2<=cutOff2){
 
                 //r2 > (sigma*2^(1/6))^2
@@ -166,8 +165,7 @@ namespace NonBonded{
 
             real3 f = make_real3(0.0);
 
-            real cutOff2=sigma*computational.cutOffFactor;
-                 cutOff2=cutOff2*cutOff2;
+            const real cutOff2 = computational.cutOffRule.get2(sigma);
             if(r2<=cutOff2){
 
                 //r2 > (sigma*2^(1/6))^2
@@ -206,8 +204,7 @@ namespace NonBonded{
 
 	tensor3 H = tensor3(0.0);
 
-	real cutOff2=sigma*computational.cutOffFactor;
-	cutOff2=cutOff2*cutOff2;
+	const real cutOff2 = computational.cutOffRule.get2(sigma);
 	if(r2<=cutOff2){
 	  real near_cut2 = sigma*sigma*real(1.259921);
 

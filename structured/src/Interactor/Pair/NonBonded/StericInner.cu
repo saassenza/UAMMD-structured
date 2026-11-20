@@ -26,7 +26,7 @@ namespace NonBonded{
             Box   box;
 
             real epsilon;
-            real cutOffFactor;
+            CutOff cutOffRule;
         };
 
         //Potential parameters
@@ -34,7 +34,7 @@ namespace NonBonded{
 
             real epsilon;
 
-            real cutOffFactor;
+            CutOff cutOffRule;
             real cutOff;
         };
 
@@ -45,7 +45,7 @@ namespace NonBonded{
             StorageData storage;
 
             storage.epsilon      = data.getParameter<real>("epsilon");
-            storage.cutOffFactor = data.getParameter<real>("cutOffFactor");
+            storage.cutOffRule = CutOff::read(data,"StericInner");
 
             ///////////////////////////////////////////////////////////
 
@@ -60,7 +60,7 @@ namespace NonBonded{
 
             //Sort in descending order
             std::sort(sortedRadius.begin(), sortedRadius.end(), std::greater<real>());
-            storage.cutOff = (sortedRadius[0] + sortedRadius[1]) * storage.cutOffFactor;
+            storage.cutOff = storage.cutOffRule.get(sortedRadius[0] + sortedRadius[1]);
 
             System::log<System::MESSAGE>("[StericInner] cutOff: %f" ,storage.cutOff);
 
@@ -85,7 +85,7 @@ namespace NonBonded{
             computational.box = gd->getEnsemble()->getBox();
 
             computational.epsilon      = storage.epsilon;
-            computational.cutOffFactor = storage.cutOffFactor;
+            computational.cutOffRule = storage.cutOffRule;
 
             return computational;
         }
@@ -105,8 +105,7 @@ namespace NonBonded{
 
             real e = real(0.0);
 
-            real cutOff2=sigma*computational.cutOffFactor;
-                 cutOff2=cutOff2*cutOff2;
+            const real cutOff2 = computational.cutOffRule.get2(sigma);
             if(r2<=cutOff2){
                 e = StericType::energy(rij,r2,epsilon,sigma);
             }
@@ -130,8 +129,7 @@ namespace NonBonded{
 
             real3 f = make_real3(0.0);
 
-            real cutOff2=sigma*computational.cutOffFactor;
-                 cutOff2=cutOff2*cutOff2;
+            const real cutOff2 = computational.cutOffRule.get2(sigma);
             if(r2<=cutOff2){
                 f = StericType::force(rij,r2,epsilon,sigma);
             }
