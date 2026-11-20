@@ -1,0 +1,12 @@
+# outputs of run_devtests.sh
+*/cases/*/*.dat
+*/cases/*/run.log
+*/cases/*/exit_code
+summary_*.txt
+stdout_*.log
+stderr_*.log
+__pycache__/
+
+# test inputs (the top-level .gitignore excludes simulation.json and files without extension)
+!*/cases/*/simulation.json
+!*/cases/*/expect_error
